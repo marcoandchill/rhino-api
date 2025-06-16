@@ -7,6 +7,9 @@ import logging
 import requests
 from typing import Dict, Optional
 import re
+import yagmail
+from config import EMAIL, PASSWORD
+import json
 
 # Configuration du logging
 logging.basicConfig(
@@ -170,45 +173,11 @@ def send_feedback_email(to_email: str, evaluation: Dict, question: str, response
         bool: True si envoyé avec succès
     """
     try:
-        import yagmail
-        from config import EMAIL, PASSWORD
-        import json
-        
-        # Préparer le contenu du feedback
+        logger = logging.getLogger(__name__)
+
         student_greeting = f"Bonjour {student_name}" if student_name else "Bonjour"
-        
-        # Extraire d'abord les données pour le sujet
-        api_data = evaluation.get('raw_api_response', {}).get('data', {})
-        score = api_data.get('score', 'N/A')
-        note = api_data.get('note', 'N/A')
-        
-        # Créer un sujet simple et propre basé sur les données JSON
-        import re
-        
-        # Extraire l'ID de question et la matière depuis l'email original si disponible
-        question_id = None
-        matiere = "Général"  # Valeur par défaut
-        
-        if original_email:
-            # Utiliser la matière directement depuis original_email
-            matiere = original_email.get('matiere', 'Général')
-            
-            if original_email.get('question_id'):
-                question_id = original_email['question_id']
-            elif original_email.get('subject'):
-                # Essayer d'extraire l'ID depuis le sujet
-                match = re.search(r'(IDQ-\d{14}-[a-f0-9]{6})', str(original_email['subject']))
-                if match:
-                    question_id = match.group(1)
-        
-        # Créer un sujet qui correspond exactement au format de la question originale
-        if question_id:
-            # Utiliser exactement le même format que l'email original
-            subject = f"🧠 Question du jour - {question_id}"
-        else:
-            subject = "🧠 Question du jour"
-        
-        # Extraire les données de l'API
+
+        # Extraire les données d’évaluation
         api_data = evaluation.get('raw_api_response', {}).get('data', {})
         score = api_data.get('score', 'N/A')
         note = api_data.get('note', 'N/A')
@@ -218,47 +187,73 @@ def send_feedback_email(to_email: str, evaluation: Dict, question: str, response
         suggestions = api_data.get('suggestions', [])
         reponse_modele = api_data.get('reponse_modele', '')
 
-        # Corps du message avec évaluation formatée
-        body = f"""{student_greeting},
+        # Traitement de l'ID de question et de la matière pour l’objet
+        question_id = None
+        matiere = "Général"
+        if original_email:
+            matiere = original_email.get('matiere', 'Général')
+            if original_email.get('question_id'):
+                question_id = original_email['question_id']
+            elif original_email.get('subject'):
+                match = re.search(r'(IDQ-\d{14}-[a-f0-9]{6})', str(original_email['subject']))
+                if match:
+                    question_id = match.group(1)
 
-Voici l'évaluation de votre réponse :
+        subject = f"🧠 Question du jour - {question_id}" if question_id else "🧠 Question du jour"
 
-QUESTION POSÉE
-{question}
+        # Génération du contenu HTML
+        body_html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+            <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+              <h2 style="color: #333;">{student_greeting},</h2>
+              <p>Voici l'évaluation de votre réponse à la question du jour :</p>
 
-RÉSULTAT
-Score : {score}/20
-Note : {note}/20
+              <h3 style="color: #2c3e50;">📝 Question</h3>
+              <p>{question}</p>
 
-FEEDBACK GÉNÉRAL
-{feedback}
+              <h3 style="color: #2c3e50;">📊 Résultat</h3>
+              <ul>
+                <li><strong>Score :</strong> {score}/20</li>
+                <li><strong>Note :</strong> {note}/20</li>
+              </ul>
 
-POINTS FORTS
-{chr(10).join([f"• {point}" for point in points_forts]) if points_forts else "• Aucun point fort identifié"}
+              <h3 style="color: #2c3e50;">🧾 Feedback général</h3>
+              <p>{feedback}</p>
 
-POINTS À AMÉLIORER
-{chr(10).join([f"• {point}" for point in points_ameliorer]) if points_ameliorer else "• Aucun point d'amélioration spécifique"}
+              <h3 style="color: #2c3e50;">✅ Points forts</h3>
+              <ul>
+                {''.join(f"<li>{point}</li>" for point in points_forts) if points_forts else "<li>Aucun point fort identifié</li>"}
+              </ul>
 
-SUGGESTIONS
-{chr(10).join([f"• {suggestion}" for suggestion in suggestions]) if suggestions else "• Aucune suggestion spécifique"}
+              <h3 style="color: #2c3e50;">⚠️ Points à améliorer</h3>
+              <ul>
+                {''.join(f"<li>{point}</li>" for point in points_ameliorer) if points_ameliorer else "<li>Aucun point d'amélioration spécifique</li>"}
+              </ul>
 
-{f"RÉPONSE MODÈLE{chr(10)}{reponse_modele}" if reponse_modele else ""}
+              <h3 style="color: #2c3e50;">💡 Suggestions</h3>
+              <ul>
+                {''.join(f"<li>{s}</li>" for s in suggestions) if suggestions else "<li>Aucune suggestion spécifique</li>"}
+              </ul>
 
-Cordialement,
-Le Rhino
-"""
-        
-        # Envoi de l'email
+              {f"""
+              <h3 style='color: #2c3e50;'>📚 Réponse Modèle</h3>
+              <p style='background-color: #f0f0f0; padding: 10px; border-radius: 5px;'>{reponse_modele}</p>
+              """ if reponse_modele else ""}
+
+              <p style="margin-top: 30px;">Cordialement,<br><strong>Le Rhino 🦏</strong></p>
+            </div>
+          </body>
+        </html>
+        """
+
+        # Envoi de l’email
         logger.info(f"Envoi du feedback à {to_email}")
         logger.info(f"Sujet: {subject}")
         yag = yagmail.SMTP(EMAIL, PASSWORD)
-        
-        # Envoi simple sans headers de threading
-        yag.send(to=to_email, subject=subject, contents=body)
-        
+        yag.send(to=to_email, subject=subject, contents=body_html)
         logger.info(f"✅ Feedback envoyé avec succès à {to_email}")
         return True
-        
     except Exception as e:
         logger.error(f"❌ Erreur envoi feedback: {e}")
         return False
@@ -282,63 +277,67 @@ def send_apology_email(to_email: str, question: str, response: str, student_name
         bool: True si envoyé avec succès
     """
     try:
-        import yagmail
-        from config import EMAIL, PASSWORD
-        
-        # Préparer le contenu de l'email d'excuses
+        logger = logging.getLogger(__name__)
+
         student_greeting = f"Bonjour {student_name}" if student_name else "Bonjour"
-        
-        # Préparer le sujet en réponse à l'email original
+
+        # Sujet de l'email
         if original_email and original_email.get('subject'):
             original_subject = original_email['subject']
-            # Supprimer les "Re: " existants pour éviter "Re: Re: ..."
             clean_subject = original_subject
             while clean_subject.startswith('Re: ') or clean_subject.startswith('RE: '):
                 clean_subject = clean_subject[4:]
             subject = f"Re: {clean_subject} - ⚠️ Problème technique temporaire"
         else:
             subject = "⚠️ Problème technique temporaire - Évaluation différée"
-        
-        # Corps du message d'excuses en français
-        body = f"""{student_greeting},
 
-Nous vous remercions pour votre réponse à la question suivante :
+        # Corps HTML
+        body_html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+            <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+              <h2 style="color: #333;">{student_greeting},</h2>
+              <p>Nous vous remercions pour votre réponse à la question suivante :</p>
 
-📝 **QUESTION**
-{question}
+              <h3 style="color: #2c3e50;">📝 Question</h3>
+              <p>{question}</p>
 
-📄 **VOTRE RÉPONSE**
-{response[:200]}{'...' if len(response) > 200 else ''}
+              <h3 style="color: #2c3e50;">📄 Votre réponse</h3>
+              <p style="background-color: #f0f0f0; padding: 10px; border-radius: 5px;">
+                {response[:200]}{'...' if len(response) > 200 else ''}
+              </p>
 
-⚠️ **PROBLÈME TECHNIQUE TEMPORAIRE**
+              <h3 style="color: #e67e22;">⚠️ Problème technique temporaire</h3>
+              <p>Nous rencontrons actuellement un problème avec notre système d’évaluation automatique.</p>
 
-Nous rencontrons actuellement un problème technique avec notre système d'évaluation automatique. 
+              <h3 style="color: #3498db;">🔧 Solution en cours</h3>
+              <ul>
+                <li>Notre équipe technique travaille activement à résoudre ce problème</li>
+                <li>Votre réponse a bien été reçue et enregistrée</li>
+                <li>L’évaluation sera effectuée dès que le système sera de nouveau opérationnel</li>
+              </ul>
 
-🔧 **SOLUTION EN COURS**
-• Notre équipe technique travaille activement à résoudre ce problème
-• Votre réponse a bien été reçue et enregistrée
-• L'évaluation sera effectuée dès que le système sera de nouveau opérationnel
+              <h3 style="color: #27ae60;">📧 Prochaines étapes</h3>
+              <p>Vous recevrez votre évaluation détaillée par email dès que notre système sera rétabli, généralement sous 24h.</p>
 
-📧 **PROCHAINES ÉTAPES**
-Vous recevrez votre évaluation détaillée par email dès que notre système sera rétabli, généralement dans les 24 heures.
+              <h3 style="color: #c0392b;">🙏 Sincères excuses</h3>
+              <p>Nous vous prions de bien vouloir nous excuser pour ce désagrément temporaire. Merci de votre patience et de votre compréhension.</p>
 
-🙏 **SINCÈRES EXCUSES**
-Nous nous excusons sincèrement pour ce désagrément temporaire et vous remercions de votre patience.
+              <p>Si vous avez des questions urgentes, n’hésitez pas à nous contacter.</p>
 
-Si vous avez des questions urgentes, n'hésitez pas à nous contacter directement.
+              <p style="margin-top: 30px;">Cordialement,<br><strong>L'équipe pédagogique 🎓</strong></p>
 
-Cordialement,
-L'équipe pédagogique 🎓
+              <hr style="margin-top: 40px;">
+              <p style="font-size: 12px; color: #777;">Détails techniques : {error_details or 'Système d’évaluation temporairement indisponible'}</p>
+            </div>
+          </body>
+        </html>
+        """
 
----
-Détails techniques : Système d'évaluation temporairement indisponible
-"""
-        
-        # Envoi de l'email avec en-têtes de réponse si disponibles
-        logger.info(f"Envoi d'email d'excuses à {to_email}")
+        # Envoi du mail
         yag = yagmail.SMTP(EMAIL, PASSWORD)
-        
-        # Préparer les en-têtes pour créer une réponse dans le même thread
+        logger.info(f"Envoi d'email d'excuses à {to_email}")
+
         headers = {}
         if original_email:
             original_message_id = original_email.get('message_id')
@@ -346,15 +345,15 @@ Détails techniques : Système d'évaluation temporairement indisponible
                 headers['In-Reply-To'] = original_message_id
                 headers['References'] = original_message_id
                 logger.info(f"Envoi en réponse au message ID: {original_message_id}")
-        
+
         if headers:
-            yag.send(to=to_email, subject=subject, contents=body, headers=headers)
+            yag.send(to=to_email, subject=subject, contents=body_html, headers=headers)
         else:
-            yag.send(to=to_email, subject=subject, contents=body)
-        
+            yag.send(to=to_email, subject=subject, contents=body_html)
+
         logger.info(f"✅ Email d'excuses envoyé avec succès à {to_email}")
         return True
-        
+
     except Exception as e:
         logger.error(f"❌ Erreur envoi email d'excuses: {e}")
         return False
