@@ -101,20 +101,41 @@ def send_question_from_api(to: str, user_id: int = 1) -> bool:
         local_question_id = generate_question_id()
         
         # Préparer le corps du message
-        body = f"""Bonjour,
+        html_body = f"""
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+            <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+            
+            <h2 style="color: #333;">Bonjour,</h2>
+            <p>Voici ta question du jour en <strong>{matiere}</strong> :</p>
 
-Voici ta question du jour en {matiere} :
+            <h3 style="color: #2c3e50;">❓ Question</h3>
+            <p>{question}</p>
 
-❓ {question}
+            <h3 style="color: #2c3e50;">📚 Détails</h3>
+            <ul>
+                <li><strong>Matière :</strong> {matiere}</li>
+                <li><strong>Référence :</strong> {challenge_ref}</li>
+                <li><strong>ID de suivi :</strong> {local_question_id}</li>
+                <li><strong>ID Challenge API :</strong> {api_challenge_id}</li>
+            </ul>
 
-📚 Matière : {matiere}
-🔖 Référence : {challenge_ref}
+            <p style="margin-top: 30px;">Bonne chance ! 🌸</p>
 
-[ID de suivi : {local_question_id}]
-[ID Challenge API : {api_challenge_id}]
+            <p style="margin-top: 40px;">Cordialement,<br><strong>Le Rhino 🦏</strong></p>
 
-Bonne chance ! 🌸
-"""
+            <hr style="margin-top: 40px; border: none; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                Tu peux répondre directement à cet email pour soumettre ta réponse.
+            </p>
+            </div>
+        </body>
+        </html>
+        """
         
         # Préparer le sujet
         subject = f"🧠 Question du jour - {local_question_id}"
@@ -123,7 +144,7 @@ Bonne chance ! 🌸
         success, message_id = send_threaded_email(
             to=to,
             subject=subject,
-            body=body
+            body=html_body
         )
         
         if success:

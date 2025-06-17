@@ -202,48 +202,61 @@ def send_feedback_email(to_email: str, evaluation: Dict, question: str, response
         subject = f"🧠 Question du jour - {question_id}" if question_id else "🧠 Question du jour"
 
         # Génération du contenu HTML
+        score_percent = int((int(note) / 20) * 100) if note != 'N/A' else 0
+
         body_html = f"""
         <html>
-          <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
             <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-              <h2 style="color: #333;">{student_greeting},</h2>
-              <p>Voici l'évaluation de votre réponse à la question du jour :</p>
+            
+            <h2 style="color: #333;">{student_greeting},</h2>
+            <p>Voici l'évaluation de votre réponse à la question du jour :</p>
 
-              <h3 style="color: #2c3e50;">📝 Question</h3>
-              <p>{question}</p>
+            <h3 style="color: #2c3e50;">📝 Question</h3>
+            <p>{question}</p>
 
-              <h3 style="color: #2c3e50;">📊 Résultat</h3>
-              <ul>
-                <li><strong>Score :</strong> {score}/20</li>
-                <li><strong>Note :</strong> {note}/20</li>
-              </ul>
-
-              <h3 style="color: #2c3e50;">🧾 Feedback général</h3>
-              <p>{feedback}</p>
-
-              <h3 style="color: #2c3e50;">✅ Points forts</h3>
-              <ul>
-                {''.join(f"<li>{point}</li>" for point in points_forts) if points_forts else "<li>Aucun point fort identifié</li>"}
-              </ul>
-
-              <h3 style="color: #2c3e50;">⚠️ Points à améliorer</h3>
-              <ul>
-                {''.join(f"<li>{point}</li>" for point in points_ameliorer) if points_ameliorer else "<li>Aucun point d'amélioration spécifique</li>"}
-              </ul>
-
-              <h3 style="color: #2c3e50;">💡 Suggestions</h3>
-              <ul>
-                {''.join(f"<li>{s}</li>" for s in suggestions) if suggestions else "<li>Aucune suggestion spécifique</li>"}
-              </ul>
-
-              {f"""
-              <h3 style='color: #2c3e50;'>📚 Réponse Modèle</h3>
-              <p style='background-color: #f0f0f0; padding: 10px; border-radius: 5px;'>{reponse_modele}</p>
-              """ if reponse_modele else ""}
-
-              <p style="margin-top: 30px;">Cordialement,<br><strong>Le Rhino 🦏</strong></p>
+            <h3 style="color: #2c3e50;">📊 Résultat</h3>
+            <div style="background-color: #f0f8ff; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px;">
+                <p><strong>Note :</strong> {note}/20</p>
+                <div style="background-color: #eee; border-radius: 8px; height: 10px; margin-top: 10px;">
+                <div style="width: {score_percent}%; background-color: #4CAF50; height: 10px; border-radius: 8px;"></div>
+                </div>
+                <p style="font-size: 12px; color: #666;">Progression : {score}/20</p>
             </div>
-          </body>
+
+            <h3 style="color: #2c3e50;">🧾 Feedback général</h3>
+            <p>{feedback}</p>
+
+            <h3 style="color: #2c3e50;">✅ Points forts</h3>
+            <ul>
+                {''.join(f"<li>{point}</li>" for point in points_forts) if points_forts else "<li>Aucun point fort identifié</li>"}
+            </ul>
+
+            <h3 style="color: #2c3e50;">⚠️ Points à améliorer</h3>
+            <ul>
+                {''.join(f"<li>{point}</li>" for point in points_ameliorer) if points_ameliorer else "<li>Aucun point d'amélioration spécifique</li>"}
+            </ul>
+
+            <h3 style="color: #2c3e50;">💡 Suggestions</h3>
+            <ul>
+                {''.join(f"<li>{s}</li>" for s in suggestions) if suggestions else "<li>Aucune suggestion spécifique</li>"}
+            </ul>
+
+            {f"""
+            <h3 style='color: #2c3e50;'>📚 Réponse Modèle</h3>
+            <p style='background-color: #f0f0f0; padding: 10px; border-radius: 5px;'>{reponse_modele}</p>
+            """ if reponse_modele else ""}
+
+            <p style="margin-top: 30px;">Cordialement,<br><strong>Le Rhino 🦏</strong></p>
+            <hr style="margin-top: 40px; border: none; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                Ce message a été généré automatiquement.
+            </p>
+            </div>
+        </body>
         </html>
         """
 
@@ -294,43 +307,47 @@ def send_apology_email(to_email: str, question: str, response: str, student_name
         # Corps HTML
         body_html = f"""
         <html>
-          <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
             <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
-              <h2 style="color: #333;">{student_greeting},</h2>
-              <p>Nous vous remercions pour votre réponse à la question suivante :</p>
+            
+            <h2 style="color: #333;">{student_greeting},</h2>
+            <p>Nous vous remercions pour votre réponse à la question du jour.</p>
 
-              <h3 style="color: #2c3e50;">📝 Question</h3>
-              <p>{question}</p>
+            <h3 style="color: #2c3e50;">📝 Question</h3>
+            <p>{question}</p>
 
-              <h3 style="color: #2c3e50;">📄 Votre réponse</h3>
-              <p style="background-color: #f0f0f0; padding: 10px; border-radius: 5px;">
+            <h3 style="color: #2c3e50;">📄 Votre réponse</h3>
+            <p style="background-color: #f0f0f0; padding: 10px; border-radius: 5px;">
                 {response[:200]}{'...' if len(response) > 200 else ''}
-              </p>
+            </p>
 
-              <h3 style="color: #e67e22;">⚠️ Problème technique temporaire</h3>
-              <p>Nous rencontrons actuellement un problème avec notre système d’évaluation automatique.</p>
+            <h3 style="color: #d35400;">⚠️ Problème technique temporaire</h3>
+            <p>Nous rencontrons actuellement un problème technique avec notre système d'évaluation automatique.</p>
 
-              <h3 style="color: #3498db;">🔧 Solution en cours</h3>
-              <ul>
-                <li>Notre équipe technique travaille activement à résoudre ce problème</li>
-                <li>Votre réponse a bien été reçue et enregistrée</li>
-                <li>L’évaluation sera effectuée dès que le système sera de nouveau opérationnel</li>
-              </ul>
+            <h3 style="color: #2c3e50;">🔧 Solution en cours</h3>
+            <ul>
+                <li>Notre équipe technique travaille activement à résoudre ce problème.</li>
+                <li>Votre réponse a bien été reçue et enregistrée.</li>
+                <li>L'évaluation sera effectuée dès que possible.</li>
+            </ul>
 
-              <h3 style="color: #27ae60;">📧 Prochaines étapes</h3>
-              <p>Vous recevrez votre évaluation détaillée par email dès que notre système sera rétabli, généralement sous 24h.</p>
+            <h3 style="color: #2c3e50;">📧 Prochaines étapes</h3>
+            <p>Vous recevrez votre évaluation détaillée par email dès que notre système sera rétabli (généralement sous 24h).</p>
 
-              <h3 style="color: #c0392b;">🙏 Sincères excuses</h3>
-              <p>Nous vous prions de bien vouloir nous excuser pour ce désagrément temporaire. Merci de votre patience et de votre compréhension.</p>
+            <h3 style="color: #2c3e50;">🙏 Sincères excuses</h3>
+            <p>Nous vous prions de nous excuser pour ce désagrément temporaire et vous remercions de votre patience.</p>
 
-              <p>Si vous avez des questions urgentes, n’hésitez pas à nous contacter.</p>
+            <p style="margin-top: 30px;">Cordialement,<br><strong>L'équipe pédagogique 🎓</strong></p>
 
-              <p style="margin-top: 30px;">Cordialement,<br><strong>L'équipe pédagogique 🎓</strong></p>
-
-              <hr style="margin-top: 40px;">
-              <p style="font-size: 12px; color: #777;">Détails techniques : {error_details or 'Système d’évaluation temporairement indisponible'}</p>
+            <hr style="margin-top: 40px; border: none; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #999; text-align: center;">
+                Ce message a été généré automatiquement.
+            </p>
             </div>
-          </body>
+        </body>
         </html>
         """
 
